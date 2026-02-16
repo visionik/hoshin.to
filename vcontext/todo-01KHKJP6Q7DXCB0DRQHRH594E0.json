@@ -1,0 +1,69 @@
+{
+  "vContextInfo": {
+    "version": "0.4"
+  },
+  "todoList": {
+    "items": [
+      {
+        "id": "5b592d74-2568-4ea1-8e7a-2e31d2693568",
+        "title": "Assess repository and derive implementation slices",
+        "status": "completed",
+        "narrative": {
+          "Background": "Need to implement SPECIFICATION.md in an unknown current repository state.",
+          "Problem": "Cannot safely implement without first mapping existing files, tooling, and constraints."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "f34b27a0-7843-457a-8664-2451e5507d6a",
+        "title": "Scaffold app/tooling for Next.js static TypeScript workflow",
+        "status": "completed",
+        "narrative": {
+          "Background": "Specification requires Next.js static-export workflow with quality tooling.",
+          "Problem": "Project may be missing baseline app and automation needed for implementation."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "afc69cc2-bcd7-4e04-a9ed-5c91a8448e6a",
+        "title": "Implement core domain, validation, and ranking engine with tests",
+        "status": "completed",
+        "narrative": {
+          "Background": "Core business logic must follow PDF semantics and strict constraints.",
+          "Problem": "Need deterministic rules and comprehensive tests before UI integration."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "1d776ff0-8f52-442f-88ca-a72cf0075956",
+        "title": "Implement visual editor interactions and accessibility",
+        "status": "completed",
+        "narrative": {
+          "Background": "Spec requires fixed visual template, dual arrow modes, and WCAG-focused flows.",
+          "Problem": "Need to deliver interactive UX with validation, ranking output, and undo/redo."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "6f181b17-881b-4d90-add1-cac2e008afe6",
+        "title": "Implement persistence abstraction and strict vbrief export",
+        "status": "completed",
+        "narrative": {
+          "Background": "Spec mandates local IndexedDB persistence plus repository abstraction and strict export.",
+          "Problem": "Need durable local saves while preserving architecture for future server adapter."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "dfc565fd-071f-41b7-9659-9343de900ed6",
+        "title": "Set up static deployment workflow and run quality gates",
+        "status": "completed",
+        "narrative": {
+          "Background": "Spec requires static deployment via Cloudflare Pages and full quality verification.",
+          "Problem": "Need CI/deploy configuration and passing checks to complete implementation."
+        },
+        "priority": "high"
+      }
+    ]
+  }
+}

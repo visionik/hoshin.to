@@ -1,0 +1,39 @@
+{
+  "vContextInfo": {
+    "version": "0.4"
+  },
+  "todoList": {
+    "items": [
+      {
+        "id": "ad72e589-2d94-42d6-af05-2517c8413899",
+        "title": "Inspect current prompt question model and UI rendering",
+        "status": "completed",
+        "narrative": {
+          "Background": "The prompt was currently a fully editable textarea and needed to become a fixed question with an editable blank.",
+          "Problem": "Without identifying existing model/UI flow, persistence-compatible changes could break saved drafts."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "b8b3563e-97cc-4691-9cfc-243a7e13a643",
+        "title": "Implement editable 80+ character blank field tied to persisted document data",
+        "status": "completed",
+        "narrative": {
+          "Background": "The blank in the question needed direct editing and autosave with the rest of the document.",
+          "Problem": "The UI had to preserve a fixed sentence while keeping storage in promptQuestion compatible."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "715624c5-b8c1-4291-ba9a-a30c6a75f34d",
+        "title": "Validate behavior and run checks",
+        "status": "completed",
+        "narrative": {
+          "Background": "Prompt handling and rendering updates can introduce type and behavior regressions.",
+          "Problem": "Verification was required to ensure compilation and tests still pass."
+        },
+        "priority": "high"
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "vContextInfo": {
+    "version": "0.4"
+  },
+  "todoList": {
+    "items": [
+      {
+        "id": "ee310f9b-5ce3-46e1-bd3b-07e2e6a0423e",
+        "title": "Review repository and editor loading flow for multi-document support",
+        "status": "completed",
+        "narrative": {
+          "Background": "The editor loaded only the latest draft and did not expose multi-document selection.",
+          "Problem": "A dropdown-based selection workflow required understanding existing repository list/get/upsert behavior."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "d983a59e-b94d-4c66-b19b-8f824338764e",
+        "title": "Implement Hoshin dropdown selector with add-new option",
+        "status": "completed",
+        "narrative": {
+          "Background": "Users needed to manage more than one Hoshin document from the same editor view.",
+          "Problem": "The UI and state needed new selection and creation flows while preserving autosave."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "dc2cd1e7-44af-4e9b-bf80-368d0f22e0e1",
+        "title": "Validate behavior with task checks",
+        "status": "completed",
+        "narrative": {
+          "Background": "State and persistence changes can introduce regressions.",
+          "Problem": "Type safety and tests had to be re-verified after the editor workflow update."
+        },
+        "priority": "high"
+      }
+    ]
+  }
+}

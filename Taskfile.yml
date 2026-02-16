@@ -1,0 +1,55 @@
+version: "3"
+
+set: [errexit, nounset, pipefail]
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  dev:
+    desc: Run local Next.js development server
+    cmds:
+      - npm run dev
+
+  fmt:
+    desc: Format code with Prettier
+    cmds:
+      - npm run fmt
+
+  lint:
+    desc: Run lint checks
+    cmds:
+      - npm run lint
+
+  typecheck:
+    desc: Run TypeScript type checking
+    cmds:
+      - npm run typecheck
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - npm run test
+
+  test:coverage:
+    desc: Run tests with coverage gates
+    cmds:
+      - npm run test:coverage
+
+  check:
+    desc: Run fmt, lint, typecheck, and coverage tests
+    deps: [fmt, lint, typecheck, test:coverage]
+
+  build:
+    desc: Build static export bundle
+    deps: [check]
+    cmds:
+      - npm run build
+
+  clean:
+    desc: Remove generated artifacts
+    cmds:
+      - rm -rf .next out coverage

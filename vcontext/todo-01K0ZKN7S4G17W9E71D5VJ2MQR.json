@@ -1,0 +1,39 @@
+{
+  "vContextInfo": {
+    "version": "0.4"
+  },
+  "todoList": {
+    "items": [
+      {
+        "id": "55fa1604-2ed3-4904-b067-aa2f25eb0aa2",
+        "title": "Replace node-wide line anchors with per-connection endpoint mapping",
+        "status": "completed",
+        "narrative": {
+          "Background": "The diagram needed explicit per-edge endpoint attachment points instead of one fixed side per statement card.",
+          "Problem": "Node-wide anchors could not satisfy the requested connection-by-connection geometry."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "97c6881d-041c-4681-8038-06f582396ad6",
+        "title": "Update SVG rendering and line hotspot placement to use per-pair endpoints",
+        "status": "completed",
+        "narrative": {
+          "Background": "Both rendered lines and clickable midpoint hotspots must use the same endpoint model to stay aligned.",
+          "Problem": "Hotspots and lines would diverge if they were computed from different anchors."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "08947606-4938-4201-b14b-2f149435a916",
+        "title": "Validate changes with project tasks/tests",
+        "status": "completed",
+        "narrative": {
+          "Background": "Anchor-mapping updates touched typed UI logic and required verification.",
+          "Problem": "Without running project checks, type or behavior regressions could go unnoticed."
+        },
+        "priority": "high"
+      }
+    ]
+  }
+}

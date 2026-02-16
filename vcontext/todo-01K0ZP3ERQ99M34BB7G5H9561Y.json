@@ -1,0 +1,49 @@
+{
+  "vContextInfo": {
+    "version": "0.4"
+  },
+  "todoList": {
+    "items": [
+      {
+        "id": "e4c6b097-61b8-4745-bd10-d3f5e503b4a4",
+        "title": "Add editable Hoshin name to document model",
+        "status": "completed",
+        "narrative": {
+          "Background": "Each Hoshin needed a stable user-editable name independent of prompt question text.",
+          "Problem": "The document model lacked a dedicated name field."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "5a38d911-8272-4f09-bf42-e420eb4c3a5e",
+        "title": "Implement unique default name assignment and migration handling",
+        "status": "completed",
+        "narrative": {
+          "Background": "New Hoshins must default to Hoshin n with unique numbering per user.",
+          "Problem": "Existing saved documents could be missing names and required normalization."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "1a96d0b0-fdc6-48c9-8a10-efd558c0ca09",
+        "title": "Wire editable name UI and dropdown labels",
+        "status": "completed",
+        "narrative": {
+          "Background": "Users needed direct control over Hoshin names and selector labels.",
+          "Problem": "Dropdown labels previously derived from prompt text instead of an editable name."
+        },
+        "priority": "high"
+      },
+      {
+        "id": "73f33bee-e20d-4c82-b87d-e1b1076f4c25",
+        "title": "Run validation checks",
+        "status": "completed",
+        "narrative": {
+          "Background": "Model, factory, and editor changes can impact type safety and behavior.",
+          "Problem": "Compilation and test validation were required after implementation."
+        },
+        "priority": "high"
+      }
+    ]
+  }
+}
