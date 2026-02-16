@@ -674,26 +674,41 @@ export function HoshinEditor() {
                     }))
                   }
                 />
-                <label className="flex items-center gap-1 text-xs">
-                  Order
-                  <input
-                    aria-label={`Initial order for ${id}`}
-                    type="number"
-                    min={1}
-                    max={5}
-                    className="w-14 rounded border border-slate-300 p-1 text-xs"
-                    value={statement.initialOrder ?? ""}
-                    onChange={(event) => {
-                      const next = event.target.value === "" ? null : Number(event.target.value);
-                      applyDocumentUpdate((current) => ({
-                        ...current,
-                        statements: current.statements.map((item) =>
-                          item.id === id ? { ...item, initialOrder: next } : item
-                        )
-                      }));
-                    }}
-                  />
-                </label>
+                <div className="flex items-center gap-1 text-xs">
+                  <span>Order</span>
+                  {[1, 2, 3, 4, 5].map((order) => {
+                    const isSelected = statement.initialOrder === order;
+                    return (
+                      <button
+                        key={order}
+                        type="button"
+                        aria-label={`Set order ${order} for ${id}`}
+                        aria-pressed={isSelected}
+                        className={`h-5 w-5 rounded text-[10px] font-medium transition-colors ${
+                          isSelected
+                            ? "bg-blue-600 text-white"
+                            : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                        }`}
+                        onClick={() => {
+                          applyDocumentUpdate((current) => ({
+                            ...current,
+                            statements: current.statements.map((item) => {
+                              if (item.id === id) {
+                                return { ...item, initialOrder: isSelected ? null : order };
+                              }
+                              if (item.initialOrder === order) {
+                                return { ...item, initialOrder: null };
+                              }
+                              return item;
+                            })
+                          }));
+                        }}
+                      >
+                        {order}
+                      </button>
+                    );
+                  })}
+                </div>
               </article>
             );
           })}
