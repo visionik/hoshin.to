@@ -10,6 +10,7 @@ coverage/
 
 # misc
 .DS_Store
+deft/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
