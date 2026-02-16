@@ -765,12 +765,9 @@ export function HoshinEditor() {
             New
           </button>
         </div>
-        <h1 className="text-xl font-semibold">Hoshin Success Compass Editor</h1>
-        <p className="mt-1 text-sm text-slate-700">
-          Fixed 5-statement template with 10 directional links and PDF-accurate arrows-out ranking.
+        <p className="text-xs text-slate-600">
+          {loadingMessage} · {saveMessage}
         </p>
-        <p className="mt-2 text-xs text-slate-600">{loadingMessage}</p>
-        <p className="text-xs text-slate-600">{saveMessage}</p>
       </header>
 
       <section className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
