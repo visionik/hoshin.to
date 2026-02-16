@@ -245,6 +245,14 @@ export function HoshinEditor() {
   const [loadingMessage, setLoadingMessage] = useState("Loading local draft...");
   const [saveMessage, setSaveMessage] = useState("Not saved yet.");
   const [dragSource, setDragSource] = useState<StatementId | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editDialogName, setEditDialogName] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [newDialogName, setNewDialogName] = useState("");
+  const [gettingStartedOpen, setGettingStartedOpen] = useState(false);
+  const [gettingStartedName, setGettingStartedName] = useState("");
   const [dragPointer, setDragPointer] = useState<AnchorPoint | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [calculatedAtLeastOnce, setCalculatedAtLeastOnce] = useState(false);
@@ -344,12 +352,9 @@ export function HoshinEditor() {
           replacePresent(latest);
           setLoadingMessage("Loaded latest local draft.");
         } else {
-          const initial = createEmptyHoshinDocumentWithName("Hoshin 1");
-          await repository.upsert(initial);
-          setDocuments([initial]);
-          setSelectedDocumentId(initial.id);
-          replacePresent(initial);
-          setLoadingMessage("Created initial local draft.");
+          // No hoshins exist - show getting started dialog
+          setGettingStartedOpen(true);
+          setLoadingMessage("Welcome! Create your first Hoshin to get started.");
         }
       } catch (error) {
         setLoadingMessage(
@@ -390,18 +395,6 @@ export function HoshinEditor() {
         await repository.upsert(document);
         setDocuments((current) => upsertDocumentInList(current, document));
 
-        if (nextSelection === ADD_NEW_HOSHIN_OPTION) {
-          const nextDocument = createEmptyHoshinDocumentWithName(
-            nextDefaultHoshinName(upsertDocumentInList(documents, document))
-          );
-          await repository.upsert(nextDocument);
-          setDocuments((current) => upsertDocumentInList(current, nextDocument));
-          setSelectedDocumentId(nextDocument.id);
-          replacePresent(nextDocument);
-          setLoadingMessage("Created new Hoshin draft.");
-          return;
-        }
-
         const selectedDocument =
           (await repository.getById(nextSelection)) ??
           documents.find((item) => item.id === nextSelection) ??
@@ -422,6 +415,57 @@ export function HoshinEditor() {
     },
     [document, documents, replacePresent, repository]
   );
+
+  const handleCreateHoshin = useCallback(
+    async (name: string) => {
+      try {
+        const trimmedName = name.trim() || nextDefaultHoshinName(documents);
+        const nextDocument = createEmptyHoshinDocumentWithName(trimmedName);
+        await repository.upsert(nextDocument);
+        setDocuments((current) => upsertDocumentInList(current, nextDocument));
+        setSelectedDocumentId(nextDocument.id);
+        replacePresent(nextDocument);
+        setLoadingMessage(`Created "${trimmedName}".`);
+      } catch (error) {
+        setLoadingMessage(
+          `Failed to create Hoshin (${error instanceof Error ? error.message : "unknown error"}).`
+        );
+      }
+    },
+    [documents, replacePresent, repository]
+  );
+
+  const handleRenameHoshin = useCallback(
+    async (newName: string) => {
+      const trimmedName = newName.trim();
+      if (!trimmedName) return;
+      applyDocumentUpdate((current) => ({ ...current, name: trimmedName }));
+      setLoadingMessage(`Renamed to "${trimmedName}".`);
+    },
+    [applyDocumentUpdate]
+  );
+
+  const handleDeleteHoshin = useCallback(async () => {
+    try {
+      await repository.delete(document.id);
+      const remaining = documents.filter((item) => item.id !== document.id);
+      setDocuments(remaining);
+      if (remaining.length > 0) {
+        const next = remaining[0]!;
+        setSelectedDocumentId(next.id);
+        replacePresent(next);
+        setLoadingMessage(`Deleted. Switched to "${next.name}".`);
+      } else {
+        // No hoshins left - show getting started
+        setGettingStartedOpen(true);
+        setLoadingMessage("All Hoshins deleted. Create a new one to continue.");
+      }
+    } catch (error) {
+      setLoadingMessage(
+        `Failed to delete (${error instanceof Error ? error.message : "unknown error"}).`
+      );
+    }
+  }, [document.id, documents, replacePresent, repository]);
 
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent) => {
@@ -460,43 +504,267 @@ export function HoshinEditor() {
 
   return (
     <section className="space-y-4">
+      {/* Getting Started Dialog */}
+      {gettingStartedOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-xl font-semibold">Welcome to Hoshin Success Compass!</h2>
+            <div className="mb-4 space-y-3 text-sm text-slate-700">
+              <p>
+                The Hoshin Success Compass helps you identify and prioritize the key issues that
+                must be addressed to achieve your goals.
+              </p>
+              <p>
+                <strong>How it works:</strong>
+              </p>
+              <ol className="list-inside list-decimal space-y-1 pl-2">
+                <li>Define your prompt question (your objective or outcome)</li>
+                <li>Fill in 5 key statements that address that question</li>
+                <li>Set the initial order of importance (1-5)</li>
+                <li>Draw directional links between statements to show cause-effect</li>
+                <li>Calculate the ranking to find your top 2 focus areas</li>
+              </ol>
+            </div>
+            <label className="mb-2 block text-sm font-medium" htmlFor="getting-started-name">
+              Name your first Hoshin
+            </label>
+            <input
+              id="getting-started-name"
+              type="text"
+              className="mb-4 w-full rounded border border-slate-300 p-2 text-sm"
+              value={gettingStartedName}
+              placeholder="e.g., Q1 Strategic Priorities"
+              onChange={(event) => setGettingStartedName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void handleCreateHoshin(gettingStartedName || "My First Hoshin");
+                  setGettingStartedOpen(false);
+                  setGettingStartedName("");
+                }
+              }}
+              autoFocus
+            />
+            <button
+              type="button"
+              className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              onClick={() => {
+                void handleCreateHoshin(gettingStartedName || "My First Hoshin");
+                setGettingStartedOpen(false);
+                setGettingStartedName("");
+              }}
+            >
+              Let&apos;s go!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Dialog */}
+      {editDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold">Rename Hoshin</h2>
+            <label className="mb-2 block text-sm font-medium" htmlFor="edit-name">
+              New name
+            </label>
+            <input
+              id="edit-name"
+              type="text"
+              className="mb-4 w-full rounded border border-slate-300 p-2 text-sm"
+              value={editDialogName}
+              onChange={(event) => setEditDialogName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && editDialogName.trim()) {
+                  void handleRenameHoshin(editDialogName);
+                  setEditDialogOpen(false);
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+                onClick={() => setEditDialogOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                disabled={!editDialogName.trim()}
+                onClick={() => {
+                  void handleRenameHoshin(editDialogName);
+                  setEditDialogOpen(false);
+                }}
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Dialog */}
+      {deleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-2 text-lg font-semibold text-red-700">Delete Hoshin</h2>
+            <p className="mb-4 text-sm text-slate-700">
+              Are you sure you want to delete <strong>&quot;{document.name}&quot;</strong>? This
+              action cannot be undone.
+            </p>
+            <label className="mb-2 block text-sm font-medium" htmlFor="delete-confirm">
+              Type <strong>DELETE</strong> to confirm
+            </label>
+            <input
+              id="delete-confirm"
+              type="text"
+              className="mb-4 w-full rounded border border-slate-300 p-2 text-sm"
+              value={deleteConfirmText}
+              onChange={(event) => setDeleteConfirmText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && deleteConfirmText === "DELETE") {
+                  void handleDeleteHoshin();
+                  setDeleteDialogOpen(false);
+                  setDeleteConfirmText("");
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setDeleteConfirmText("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                disabled={deleteConfirmText !== "DELETE"}
+                onClick={() => {
+                  void handleDeleteHoshin();
+                  setDeleteDialogOpen(false);
+                  setDeleteConfirmText("");
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Dialog */}
+      {newDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold">Create New Hoshin</h2>
+            <label className="mb-2 block text-sm font-medium" htmlFor="new-name">
+              Hoshin name
+            </label>
+            <input
+              id="new-name"
+              type="text"
+              className="mb-4 w-full rounded border border-slate-300 p-2 text-sm"
+              value={newDialogName}
+              placeholder={nextDefaultHoshinName(documents)}
+              onChange={(event) => setNewDialogName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void handleCreateHoshin(newDialogName);
+                  setNewDialogOpen(false);
+                  setNewDialogName("");
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+                onClick={() => {
+                  setNewDialogOpen(false);
+                  setNewDialogName("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                onClick={() => {
+                  void handleCreateHoshin(newDialogName);
+                  setNewDialogOpen(false);
+                  setNewDialogName("");
+                }}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <label className="mb-1 block text-xs font-medium text-slate-700" htmlFor="hoshin-selector">
-          Hoshin
-        </label>
-        <select
-          id="hoshin-selector"
-          className="mb-3 w-full rounded border border-slate-300 p-2 text-sm"
-          value={selectedDocumentId}
-          onChange={(event) => void handleSelectHoshin(event.target.value)}
-          disabled={!loaded}
-        >
-          <option value={ADD_NEW_HOSHIN_OPTION}>Add a new Hoshin...</option>
-          {documents.map((item, index) => (
-            <option key={item.id} value={item.id}>
-              {hoshinOptionLabel(item, index)}
-            </option>
-          ))}
-        </select>
-        <label
-          className="mb-1 block text-xs font-medium text-slate-700"
-          htmlFor="hoshin-name-input"
-        >
-          Hoshin name
-        </label>
-        <input
-          id="hoshin-name-input"
-          type="text"
-          className="mb-3 w-full rounded border border-slate-300 p-2 text-sm"
-          value={document.name}
-          placeholder="Hoshin name"
-          onChange={(event) =>
-            applyDocumentUpdate((current) => ({
-              ...current,
-              name: event.target.value
-            }))
-          }
-        />
+        <div className="mb-3 flex items-end gap-2">
+          <div className="flex-1">
+            <label
+              className="mb-1 block text-xs font-medium text-slate-700"
+              htmlFor="hoshin-selector"
+            >
+              Hoshin
+            </label>
+            <select
+              id="hoshin-selector"
+              className="w-full rounded border border-slate-300 p-2 text-sm"
+              value={selectedDocumentId}
+              onChange={(event) => void handleSelectHoshin(event.target.value)}
+              disabled={!loaded || documents.length === 0}
+            >
+              {documents.map((item, index) => (
+                <option key={item.id} value={item.id}>
+                  {hoshinOptionLabel(item, index)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-50"
+            disabled={!loaded || documents.length === 0}
+            onClick={() => {
+              setEditDialogName(document.name);
+              setEditDialogOpen(true);
+            }}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="rounded border border-red-300 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+            disabled={!loaded || documents.length === 0}
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            disabled={!loaded}
+            onClick={() => {
+              setNewDialogName("");
+              setNewDialogOpen(true);
+            }}
+          >
+            New
+          </button>
+        </div>
         <h1 className="text-xl font-semibold">Hoshin Success Compass Editor</h1>
         <p className="mt-1 text-sm text-slate-700">
           Fixed 5-statement template with 10 directional links and PDF-accurate arrows-out ranking.
