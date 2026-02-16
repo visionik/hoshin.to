@@ -36,8 +36,13 @@ function additionalWordCount(text: string): number {
   return tokenizeWords(suffix).length;
 }
 
-function normalizePath(path: string): string {
-  return `hoshin.${path}`;
+function formatStatementPath(statementId: string): string {
+  return `Card ${statementId.toUpperCase()}`;
+}
+
+function formatConnectionPath(connectionId: string): string {
+  const [a, b] = connectionId.split("-");
+  return `Link ${a?.toUpperCase()}-${b?.toUpperCase()}`;
 }
 
 export function validateDraft(document: HoshinDocument): ValidationResult {
@@ -47,13 +52,13 @@ export function validateDraft(document: HoshinDocument): ValidationResult {
     issues.push({
       code: "statement-count-invalid",
       message: "A Hoshin MUST contain exactly five statements.",
-      path: normalizePath("statements")
+      path: "Statements"
     });
   }
 
   const seenOrders = new Set<number>();
-  for (const [index, statement] of document.statements.entries()) {
-    const path = normalizePath(`statements[${index}]`);
+  for (const statement of document.statements) {
+    const path = formatStatementPath(statement.id);
     const trimmed = statement.text.trim();
     if (extractSuffixAfterPrefix(trimmed) === null) {
       issues.push({
@@ -97,7 +102,7 @@ export function validateDraft(document: HoshinDocument): ValidationResult {
     issues.push({
       code: "initial-order-coverage-invalid",
       message: "Initial order values MUST cover all 1 through 5 exactly once.",
-      path: normalizePath("statements")
+      path: "Order"
     });
   }
 
@@ -105,15 +110,15 @@ export function validateDraft(document: HoshinDocument): ValidationResult {
     issues.push({
       code: "connection-count-invalid",
       message: "The Hoshin template MUST include all ten fixed connections.",
-      path: normalizePath("connections")
+      path: "Links"
     });
   }
 
   const requiredPairs = new Set(
     FIXED_CONNECTION_PAIRS.map((pair) => toConnectionPairId(pair[0], pair[1]))
   );
-  for (const [index, connection] of document.connections.entries()) {
-    const path = normalizePath(`connections[${index}]`);
+  for (const connection of document.connections) {
+    const path = formatConnectionPath(connection.id);
     if (!requiredPairs.has(connection.id)) {
       issues.push({
         code: "connection-pair-invalid",
@@ -150,7 +155,7 @@ export function validateDraft(document: HoshinDocument): ValidationResult {
       issues.push({
         code: "connection-pair-missing",
         message: `Missing fixed connection pair: ${requiredPair}.`,
-        path: normalizePath("connections")
+        path: formatConnectionPath(requiredPair)
       });
     }
   }
@@ -161,7 +166,7 @@ export function validateDraft(document: HoshinDocument): ValidationResult {
       issues.push({
         code: "statement-id-missing",
         message: `Missing fixed statement slot: ${id}.`,
-        path: normalizePath("statements")
+        path: formatStatementPath(id)
       });
     }
   }
