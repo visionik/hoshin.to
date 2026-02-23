@@ -1,248 +1,106 @@
-# Hoshin
+# Hoshin Wizard — Specification
 
 ## Overview
 
-Hoshin is a local-first web app for creating and evaluating a Hoshin Success Compass in a visual format aligned to the source PDF process by Matthew Cross. The app MUST support creating one Hoshin with five statements, assigning causal arrows across the ten fixed pairwise connections, calculating ranking based on arrows out, and exporting to `vbrief` format.
-
-v1 scope MUST prioritize correctness and usability for desktop/tablet on modern evergreen browsers, using static hosting (Cloudflare Pages via GitHub) with no required feature loss. Post-v1 phases SHOULD add recursive follow-up Hoshins, `vbrief` import, and server-side save.
+The Hoshin Wizard is an addition to the existing Hoshin Success Compass app. It guides the user through the ten fixed pairwise connections by asking, for each pair, which statement best enables or makes the other easier to do. The wizard writes chosen directions into the current Hoshin document and supports partial progress (save on exit). All data remain browser-side; there is no sign-in.
 
 ## Requirements
 
 ### Functional Requirements
 
-- The editor MUST use a fixed template layout modeled after the PDF form (no freeform canvas).
-- A Hoshin MUST contain exactly five statements.
-- Each statement MUST begin with `I/We must` and MUST include 3-7 additional words.
-- The user MUST provide an initial order value (1-5) for each statement.
-- The editor MUST expose ten fixed pairwise connections and require direction for each.
-- Arrow direction MUST represent driver -> driven.
-- The app MUST support two arrow-input modes:
-  - Mode A: click/tap a connection and select direction.
-  - Mode B: drag source statement to target statement.
-- Default arrow-input mode MUST be Mode A.
-- The app MUST remember the last selected arrow-input mode per device/browser.
-- The calculate flow MUST implement the PDF rule exactly:
-  - Count outgoing arrows per statement.
-  - Re-rank by highest arrows out = rank #1.
-  - Resolve ties by placing the statement that drives the other ahead.
-- Results MUST highlight focus items #1 and #2.
-- The app MUST allow saving invalid drafts locally.
-- The app MUST block calculate and export when validation fails.
-- Export MUST support `vbrief` download in strict mode only (block export if invalid).
-- `vbrief` export MUST pin to a tagged upstream `vbrief` version and include version metadata.
-- `vbrief` import MUST be out of scope for v1 and planned for a later phase.
-- PDF Step 8 recursive continuation MUST be out of scope for v1 and planned as a later phase with full lineage support.
-- v1 undo/redo MUST support text edits and arrow-direction changes.
-
-### Persistence and Data Ownership
-
-- v1 MUST be local-first and MUST NOT require authentication.
-- v1 MUST persist data in IndexedDB.
-- The codebase MUST define a repository abstraction to support later server-side persistence without core logic rewrites.
+- The wizard MUST operate on the currently selected Hoshin document in the editor.
+- The wizard MUST use the existing domain model: five statements (s1–s5), ten fixed connection pairs, and `Connection.direction` (driver → driven).
+- The user MUST be able to start the wizard from the editor via a dedicated control (e.g. “Run wizard” / “Compare boxes” button).
+- Wizard entry MUST be gated by “wizard-ready” validation: exactly five statements, each with valid prefix (“I/We must” or “I must” or “We must”) and 3–7 additional words, and unique initial order 1–5 for all statements. Connection directions MAY be null or already set.
+- The wizard MUST present one pair at a time, showing the two statement texts and asking which statement best enables the other (choice A→B or B→A).
+- For each answered pair, the wizard MUST write the chosen direction to the document’s corresponding connection and MUST persist the document (e.g. via existing `HoshinRepository.upsert`).
+- If the user exits the wizard before answering all pairs, the app MUST save partial progress (all answered pairs persisted); connections not yet answered MUST remain unchanged.
+- When the user completes all ten pairs, the wizard MUST close and return focus to the editor with the document updated; the user MAY then run “Calculate ranking” when full validation (including all connection directions) is satisfied.
+- On a subsequent “Run wizard” for the same document, the app SHOULD offer to continue (only present pairs with null direction) or restart (clear all ten directions and re-ask all). If only “continue” is implemented first, that is acceptable.
+- The wizard MUST NOT require authentication; persistence MUST use the existing browser-side store (IndexedDB via `HoshinRepository`).
 
 ### Non-Functional Requirements
 
-- The app MUST target desktop + tablet UX in v1.
-- The app MUST officially support modern evergreen Chrome/Safari/Edge/Firefox.
-- The app MUST meet WCAG 2.1 AA for core editor flows.
-- The deployment model MUST be static export hosted on Cloudflare Pages via GitHub.
+- The wizard MUST fit the existing stack: Next.js, React, TypeScript, Tailwind; same repository and domain layer.
+- The implementation MUST preserve existing behavior: editor, Calculate, Export, undo/redo, and validation for calculation/export MUST remain unchanged except where explicitly extended.
+- Quality: MUST run `task check` (fmt, lint, typecheck, test:coverage) and maintain ≥85% coverage.
 
 ## Architecture
 
-### High-Level Architecture
+### Wizard-Ready Validation
 
-- Frontend: Next.js + React + TypeScript (static export configuration).
-- Styling/UI: Tailwind + shadcn/ui primitives.
-- State domains:
-  - `domain/hoshin`: entities, value objects, invariants.
-  - `domain/ranking`: arrows-out calculation and tie-break logic.
-  - `domain/validation`: structural and semantic validation.
-  - `application/repository`: persistence interface and use-cases.
-  - `infrastructure/indexeddb`: v1 IndexedDB implementation.
-  - `infrastructure/export/vbrief`: strict serializer + versioned schema mapping.
+- A new validation function (e.g. `canRunWizard(document)` or a subset of `validateDraft`) MUST define wizard-ready: five statements, each with valid prefix and word count and non-null unique initial order 1–5. It MUST NOT require connection directions.
+- The existing “calculation-ready” validation (all statements + all connection directions) MUST remain the gate for Calculate and Export.
 
-### Core Domain Model
+### Wizard Flow and State
 
-- `HoshinDocument`
-  - `id`
-  - `promptQuestion`
-  - `statements[5]` with `id`, `text`, `initialOrder`
-  - `connections[10]` fixed pairs with required direction
-  - `settings` (arrow input mode)
-  - `timestamps`
-- `CalculatedResult`
-  - `arrowsOutByStatement`
-  - `finalRanking`
-  - `focusTopTwo`
+- Wizard state: current document (or a copy used only in wizard), current pair index (or list of unanswered pair ids), and progress (which pairs have been answered).
+- Pair order: use the existing `FIXED_CONNECTION_PAIRS` order (or a deterministic ordering of the ten pairs).
+- On “answer”: update `document.connections` for that pair with `direction: { from, to }`, call repository upsert, advance to next pair (or finish).
+- On “exit” / “back”: upsert current document (with any partial answers), then close wizard and return to editor.
 
-### Repository Abstraction
+### UI Placement
 
-- `HoshinRepository` interface MUST define create/read/update/list/delete for local docs and drafts.
-- `IndexedDbHoshinRepository` MUST implement `HoshinRepository` for v1.
-- `RemoteHoshinRepository` SHOULD be defined as a planned adapter in a later phase.
+- Add a “Run wizard” (or “Compare boxes”) button in the editor toolbar/header, near Calculate and Export. It MUST be disabled when the document is not wizard-ready; optional tooltip or message explaining requirements when disabled.
+- Wizard MAY be implemented as a modal/overlay on the same page or a dedicated route; modal is recommended to keep context (current document) obvious.
 
-### Validation Layers
+### Dependencies
 
-- Edit-time validation SHOULD be non-blocking and inline.
-- Pre-calculate and pre-export validation MUST be blocking.
-- Validation MUST include:
-  - Exactly five statements.
-  - Statement prefix and word-count constraints.
-  - Complete initial order coverage.
-  - All ten connection directions set.
+- Depends on existing: `HoshinDocument`, `Statement`, `Connection`, `FIXED_CONNECTION_PAIRS`, `toConnectionPairId`, `HoshinRepository`, editor’s document state and `applyDocumentUpdate` / persistence.
+- No new backend or auth; no schema changes to IndexedDB beyond existing document shape.
 
 ## Implementation Plan
 
-### Phase 1: Foundation (depends on: none)
+### Phase 1: Wizard-ready validation and entry (depends on: none)
 
-#### Subphase 1.1: Project setup
+- Task 1.1: Add wizard-ready validation.
+  - Implement a function (e.g. in `domain/hoshin/validation.ts` or a dedicated module) that returns whether a document is wizard-ready: exactly five statements, each with valid prefix and 3–7 additional words, and unique initial order 1–5. Do not require connection directions.
+  - Add unit tests; ensure existing validation and ranking tests still pass.
+- Task 1.2: Add “Run wizard” entry point in the editor.
+  - Add a button (e.g. “Run wizard” or “Compare boxes”) that is enabled only when the current document is wizard-ready.
+  - When disabled, optionally show a short message or tooltip (e.g. “Complete all 5 statements and set order 1–5 to run the wizard”).
+  - Clicking the button MUST open the wizard flow (modal or route) with the current document.
+  - Acceptance: button state matches wizard-ready; opening wizard receives correct document.
 
-- Task 1.1.1: Initialize Next.js static-export-ready TypeScript app shell with Tailwind + shadcn/ui.
-  - Dependencies: none
-  - Acceptance criteria: local build and static export both succeed.
-- Task 1.1.2: Establish Taskfile workflows (`dev`, `test`, `lint`, `typecheck`, `check`, `build`).
-  - Dependencies: 1.1.1
-  - Acceptance criteria: `task --list` shows documented targets; `task check` runs full quality pipeline.
-- Task 1.1.3: Configure testing stack (Vitest + RTL + coverage thresholds >=85%).
-  - Dependencies: 1.1.1
-  - Acceptance criteria: baseline tests pass and coverage gating is active.
-- Subphase 1.1 completion gate: implement and run tests until passing.
+### Phase 2: Wizard flow — one pair at a time, persist, partial save (depends on: Phase 1)
 
-#### Subphase 1.2: Domain and rules engine (depends on: 1.1)
+- Task 2.1: Wizard UI — present one pair per step.
+  - For the current pair, show the two statement texts (and optionally ids, e.g. s1, s2) and two clear options: e.g. “A enables B” and “B enables A” (with A/B mapped to the two statements for that pair).
+  - On choice: set `connection.direction` for that pair, update document in memory, call `repository.upsert(document)`, then advance to the next unanswered pair (or to “complete” if all ten are answered).
+  - Use `FIXED_CONNECTION_PAIRS` (or equivalent) for deterministic order.
+  - Acceptance: each answer updates the document and persists; advancing shows the next pair; completion closes the wizard and returns to editor.
+- Task 2.2: Partial save on exit.
+  - Provide an explicit “Back” / “Exit” / “Cancel” control that, on click, upserts the current document (with any directions set so far) and closes the wizard.
+  - Do not clear or reset directions for unanswered pairs; leave them as they were when the wizard was opened.
+  - Acceptance: exiting mid-wizard leaves answered pairs saved and rest unchanged; re-opening editor shows updated document.
+- Task 2.3: Integration with editor state.
+  - When the wizard closes (complete or exit), the editor MUST reflect the updated document (reload from repository or pass updated document back so the editor’s current document is in sync).
+  - Acceptance: after wizard, editor shows latest connections; Calculate/Export behave as before when full validation is met.
 
-- Task 1.2.1: Implement domain entities and fixed 5-node/10-edge template model.
-  - Dependencies: 1.1.3
-  - Acceptance criteria: model enforces shape constraints.
-- Task 1.2.2: Implement validation engine for statement and connection rules.
-  - Dependencies: 1.2.1
-  - Acceptance criteria: invalid cases return deterministic error codes/messages.
-- Task 1.2.3: Implement ranking engine per PDF rule (arrows out + driver tie-break).
-  - Dependencies: 1.2.1
-  - Acceptance criteria: deterministic ranking across edge/tie scenarios.
-- Task 1.2.4: Add unit + property-style tests for parser/validation/ranking paths.
-  - Dependencies: 1.2.2, 1.2.3
-  - Acceptance criteria: >=85% coverage for domain modules.
-- Subphase 1.2 completion gate: implement and run tests until passing.
+### Phase 3: Continue vs restart (depends on: Phase 2)
 
-### Phase 2: Visual editor and interactions (depends on: Phase 1)
-
-#### Subphase 2.1: Fixed template editor UI
-
-- Task 2.1.1: Build fixed-form visual layout with five statement cards and ten connection lines.
-  - Dependencies: 1.2.1
-  - Acceptance criteria: visual structure matches fixed template behavior.
-- Task 2.1.2: Build statement editing, initial order fields, and inline validation rendering.
-  - Dependencies: 2.1.1, 1.2.2
-  - Acceptance criteria: users can complete all required inputs with clear errors.
-- Task 2.1.3: Add basic undo/redo for statement and order edits.
-  - Dependencies: 2.1.2
-  - Acceptance criteria: keyboard + UI controls support undo/redo for covered actions.
-- Subphase 2.1 completion gate: implement and run tests until passing.
-
-#### Subphase 2.2: Dual arrow-input modes and settings (depends on: 2.1)
-
-- Task 2.2.1: Implement Mode A (line click/tap -> direction chooser).
-  - Dependencies: 2.1.1
-  - Acceptance criteria: each of ten connections can be directed and flipped.
-- Task 2.2.2: Implement Mode B (drag source -> target) with pair validity checks.
-  - Dependencies: 2.2.1
-  - Acceptance criteria: drag sets only valid fixed-pair directions.
-- Task 2.2.3: Implement mode settings UI (default Mode A) and last-used persistence.
-  - Dependencies: 2.2.1, 2.2.2
-  - Acceptance criteria: mode persists across reloads on same device/browser.
-- Task 2.2.4: Extend undo/redo to arrow-direction changes.
-  - Dependencies: 2.2.1, 2.2.2
-  - Acceptance criteria: direction changes are reversible.
-- Subphase 2.2 completion gate: implement and run tests until passing.
-
-#### Subphase 2.3: Calculation and focus outputs (depends on: 2.2)
-
-- Task 2.3.1: Implement blocking validation for calculate.
-  - Dependencies: 2.1.2, 2.2.2
-  - Acceptance criteria: calculate unavailable until all blocking validations pass.
-- Task 2.3.2: Render arrows-out totals, final ranking, and highlighted #1/#2 focus.
-  - Dependencies: 2.3.1, 1.2.3
-  - Acceptance criteria: output matches deterministic engine results.
-- Task 2.3.3: Add accessibility support (keyboard flow, labels, focus states, SR announcements).
-  - Dependencies: 2.3.2
-  - Acceptance criteria: core flows satisfy WCAG 2.1 AA checks.
-- Subphase 2.3 completion gate: implement and run tests until passing.
-
-### Phase 3: Persistence, export, and deployment (depends on: Phase 2)
-
-#### Subphase 3.1: Local persistence via repository abstraction
-
-- Task 3.1.1: Define `HoshinRepository` interface and use-case services.
-  - Dependencies: 1.2.1
-  - Acceptance criteria: domain/application layers compile against interface only.
-- Task 3.1.2: Implement `IndexedDbHoshinRepository`.
-  - Dependencies: 3.1.1
-  - Acceptance criteria: create/read/update/list/delete works offline.
-- Task 3.1.3: Enable autosave of drafts (including invalid drafts).
-  - Dependencies: 3.1.2
-  - Acceptance criteria: refresh retains in-progress edits and validation states.
-- Subphase 3.1 completion gate: implement and run tests until passing.
-
-#### Subphase 3.2: Strict `vbrief` export
-
-- Task 3.2.1: Pin supported `vbrief` version tag and define mapping contract.
-  - Dependencies: 1.2.1
-  - Acceptance criteria: explicit export versioning documented and test-covered.
-- Task 3.2.2: Implement strict exporter and blocking pre-export validation.
-  - Dependencies: 3.2.1, 1.2.2
-  - Acceptance criteria: invalid docs cannot export; valid docs export deterministically.
-- Task 3.2.3: Add export download UX and clear validation/error messaging.
-  - Dependencies: 3.2.2
-  - Acceptance criteria: user can download valid `vbrief` artifact from UI.
-- Subphase 3.2 completion gate: implement and run tests until passing.
-
-#### Subphase 3.3: Static deployment pipeline
-
-- Task 3.3.1: Configure Next static export and Cloudflare Pages build settings.
-  - Dependencies: 1.1.1, 3.2.3
-  - Acceptance criteria: CI build produces deployable static artifacts.
-- Task 3.3.2: Configure GitHub -> Cloudflare Pages deployment workflow.
-  - Dependencies: 3.3.1
-  - Acceptance criteria: push to main deploys successfully.
-- Task 3.3.3: Add smoke tests for deployed static bundle behavior.
-  - Dependencies: 3.3.2
-  - Acceptance criteria: post-deploy checks pass on supported browsers.
-- Subphase 3.3 completion gate: implement and run tests until passing.
-
-### Phase 4: Post-v1 expansion (depends on: Phase 3)
-
-#### Subphase 4.1: `vbrief` import (later phase)
-
-- Task 4.1.1: Implement strict import parser and compatibility checks for pinned version.
-- Task 4.1.2: Add import UX + conflict/error handling.
-- Completion gate: implement and run tests until passing.
-
-#### Subphase 4.2: Server-side persistence (later phase)
-
-- Task 4.2.1: Add remote persistence API contract and auth model.
-- Task 4.2.2: Implement `RemoteHoshinRepository` behind same interface.
-- Task 4.2.3: Add migration/sync strategy from local IndexedDB.
-- Completion gate: implement and run tests until passing.
-
-#### Subphase 4.3: Recursive follow-up Hoshins (full PDF Step 8) (later phase)
-
-- Task 4.3.1: Add one-click follow-up creation from ranked #1 and #2.
-- Task 4.3.2: Add lineage graph/history and parent-child navigation.
-- Task 4.3.3: Add recursive planning workflows and summary views.
-- Completion gate: implement and run tests until passing.
+- Task 3.1: Re-run behavior.
+  - When opening the wizard for a document that already has some connection directions set, either: (a) only show pairs with null direction (“Continue”), or (b) offer “Continue” vs “Restart” (restart clears all ten directions for this document, then asks all ten).
+  - At least one of (a) or (b) MUST be implemented; (a) alone is acceptable for initial release.
+  - Acceptance: re-running wizard does not lose existing answers unless user explicitly chooses restart.
 
 ## Testing Strategy
 
-- Unit tests MUST cover domain rules, validation, ranking, repository adapters, and export mapping.
-- Integration tests MUST cover full editor workflows: create -> validate -> calculate -> export.
-- Accessibility tests MUST cover keyboard-only operation, focus order, labels, and screen reader-critical announcements.
-- Cross-browser test matrix MUST include current evergreen Chrome/Safari/Edge/Firefox.
-- Coverage MUST be >=85% overall and per critical module.
-- CI MUST fail on lint/type/test/coverage failures.
+- Unit tests for wizard-ready validation (valid/invalid statements, orders, connection state).
+- Unit tests for wizard logic: given a document and a sequence of choices, final `connections` and persistence behavior are correct; partial save leaves other pairs unchanged.
+- Integration or component tests: wizard opens with correct document; one full pass through ten pairs updates document and closes; exit mid-way persists partial and leaves rest unchanged.
+- Existing test suite MUST remain green; coverage MUST remain ≥85%.
 
 ## Deployment
 
-- Deployment MUST use static export hosted on Cloudflare Pages from GitHub.
-- The release pipeline SHOULD include preview deployments per pull request.
-- Runtime architecture MUST assume no required server dependency for v1 features.
-- Secrets/configuration MUST be managed via Cloudflare Pages/GitHub environment controls as needed.
+- No change to deployment model: static export, existing hosting. No new environment variables or backend.
+
+## Summary of Interview Decisions
+
+- Primary user: end users of the product, with their own matrices and history — implemented as browser-side data only (no sign-in).
+- Wizard outcome: save an ordering (write chosen directions into the document’s connections).
+- Boxes source: from the current Hoshin (wizard uses its five statements; does not create new documents).
+- Entry: button from the editor for the current document.
+- Mid-wizard exit: save partial (persist answered pairs; leave rest unchanged).
+- Auth: none; everything stored in browser-side data stores.
+- Wizard gate: allow when statements and initial orders are set (option 2); connection directions may be null.

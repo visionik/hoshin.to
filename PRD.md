@@ -1,17 +1,13 @@
-# Product Requirements Document: Hoshin
+# Product Requirements Document: Hoshin Wizard
 
-**Generated**: 2026-02-16
+**Generated**: 2026-02-22
 **Status**: Ready for AI Interview
 
 ## Initial Input
 
-**Project Description**: Web site to implement a visual hoshin editor/evaluator based on hoshin-northstar-process.pdf
+**Project Description**: Add a wizard like feature that compares one hoshin box to each other box, one at a time, and asks which box best enables or makes the other box easier to do
 
-**I want to build Hoshin that has the following features:**
-
-1. have ability to download a hoshin in https://github.com/visionik/vbrief format
-2. enable users to visually fill in a hoshin "form" (it shouldn't be a plain html form thing though it should be visual like the form in the pdf
-3. "calculate" the hoshin and highlight what the most important task should be (highest dependency task)
+**I want to build Hoshin Wizard that has the following features:**
 
 ---
 
@@ -24,7 +20,7 @@ Legend (from RFC2119): !=MUST, ~=SHOULD, ≉=SHOULD NOT, ⊗=MUST NOT, ?=MAY.
 ## Input Template
 
 ```
-I want to build Hoshin that has the following features:
+I want to build Hoshin Wizard that has the following features:
 1. [feature]
 2. [feature]
 ...
@@ -118,39 +114,31 @@ N. [feature]
 
 ---
 
-## Interview Transcript (Questions and Answers)
+## Interview: Questions and Answers
 
-1. **Q:** For v1, what is the data ownership + persistence model?<br/>
-   **A:** Option 1 — local-first, no auth.
-2. **Q:** How strict should visual layout be relative to the PDF form?<br/>
-   **A:** Option 1 — fixed template layout.
-3. **Q:** Should v1 use exact PDF ranking semantics?<br/>
-   **A:** Yes — direct arrows-out count with driver tie-break.
-4. **Q:** How strict should `vbrief` export validation be?<br/>
-   **A:** Option 1 — strict mode only.
-5. **Q:** Should v1 enforce exact structural rules from PDF?<br/>
-   **A:** Option 1 — exactly 5 statements, `I/We must` prefix, 3-7 words.
-6. **Q:** How should users set arrow direction?<br/>
-   **A:** Support both Option 1 (line click + choose direction) and Option 2 (drag source to target), configurable.
-7. **Q:** What should default arrow mode behavior be?<br/>
-   **A:** Option 1 default mode; Option 3 persistence (remember last mode on device).
-8. **Q:** Should v1 support `vbrief` import?<br/>
-   **A:** Option 3 — export now, import later.
-9. **Q:** Should PDF Step 8 be included in v1?<br/>
-   **A:** Enable full Option 3 in a later phase (not v1).
-10. **Q:** What should primary deployment target be?<br/>
-    **A:** Option 2 — static export hosted by Cloudflare Pages via GitHub, provided no features/functions are lost.
-11. **Q:** What local persistence model should v1 use?<br/>
-    **A:** Option 2 — IndexedDB; also add a repository abstraction for future server-side save.
-12. **Q:** How strict should validation be during save/edit flows?<br/>
-    **A:** Option 2 — allow invalid draft saves, but block calculate/export until valid.
-13. **Q:** What device support should v1 target?<br/>
-    **A:** Option 2 — desktop + tablet.
-14. **Q:** What browser compatibility should v1 target?<br/>
-    **A:** Option 1 — modern evergreen browsers only.
-15. **Q:** What undo/redo support should v1 include?<br/>
-    **A:** Option 2 — basic undo/redo for text and arrow direction changes.
-16. **Q:** What should be source-of-truth for `vbrief` schema/version?<br/>
-    **A:** Option 1 — pin to a tagged `vbrief` release.
-17. **Q:** What accessibility target should v1 meet?<br/>
-    **A:** Option 1 — WCAG 2.1 AA for core editor flows.
+**Step 1 — Who is the primary user of the Hoshin Wizard?**  
+Options: 1 = Only you; 2 = Your team in a workshop; 3 = End users of a product (each with own matrices/history); 4 = Other.  
+**Answer:** 3 (End users of a product — each user has their own matrices and history; multi-user, auth, persistence).
+
+**Step 2 — What should the wizard do with the comparison result?**  
+Options: 1 = Save an ordering; 2 = Suggest sequence only; 3 = Export only; 4 = Display only; 5 = Other.  
+**Answer:** 1 (Save an ordering — store which box enables which; user sees suggested sequence).
+
+**Step 3 — Where do the boxes in the wizard come from?**  
+Options: 1 = From an existing Hoshin; 2 = Created in the wizard; 3 = Both; 4 = Other.  
+**Answer:** 1 (From an existing Hoshin — wizard uses that document’s five statements, runs pairwise comparisons, writes results back into that Hoshin’s connections and ranking).
+
+**Step 4 — How does the user start the wizard?**  
+Options: 1 = Button from the editor; 2 = From document list; 3 = Both; 4 = Other.  
+**Answer:** 1 (Button from the editor — “Run wizard” / “Compare boxes” launches the wizard for the current Hoshin).
+
+**Step 5 — If the user leaves the wizard before finishing all pairwise comparisons, what should happen?**  
+Options: 1 = Discard; 2 = Save partial; 3 = Confirm exit (discard vs save partial); 4 = Other.  
+**Answer:** 2 (Save partial — persist completed comparisons; leave the rest unchanged).
+
+**Step 6 — How should users sign in?**  
+Clarification given: There is no sign-in; everything is stored in browser-side data stores.
+
+**Step 7 — When the user clicks “Run wizard”, what if some statements are empty or the document isn’t valid yet?**  
+Options: 1 = Block and explain; 2 = Allow if statements and orders are set; 3 = Other.  
+**Answer:** 2 (Allow when statements and orders are set — require only five statements and unique 1–5 orders; connections may be null; wizard sets or overwrites the 10 directions).

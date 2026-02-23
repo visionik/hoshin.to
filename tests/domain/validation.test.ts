@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyHoshinDocument } from "@/src/domain/hoshin/factory";
 import { toConnectionPairId } from "@/src/domain/hoshin/models";
-import { canCalculate, validateDraft } from "@/src/domain/hoshin/validation";
+import {
+  canCalculate,
+  canRunWizard,
+  validateDraft,
+  validateWizardReady
+} from "@/src/domain/hoshin/validation";
 
 function validDocument() {
   const document = createEmptyHoshinDocument();
@@ -130,5 +135,74 @@ describe("validateDraft", () => {
     invalid.connections[0]!.direction = null;
     expect(canCalculate(valid)).toBe(true);
     expect(canCalculate(invalid)).toBe(false);
+  });
+});
+
+function wizardReadyDocument() {
+  const document = createEmptyHoshinDocument();
+  document.statements = [
+    { id: "s1", text: "I/We must establish weekly planning rituals", initialOrder: 1 },
+    { id: "s2", text: "I/We must define measurable revenue goals", initialOrder: 2 },
+    { id: "s3", text: "I/We must improve cross-team communication cadence", initialOrder: 3 },
+    { id: "s4", text: "I/We must automate repetitive reporting tasks", initialOrder: 4 },
+    { id: "s5", text: "I/We must reduce blocked dependency handoffs", initialOrder: 5 }
+  ];
+  return document;
+}
+
+describe("validateWizardReady / canRunWizard", () => {
+  it("accepts document with valid statements and orders when connections have no direction", () => {
+    const document = wizardReadyDocument();
+    const result = validateWizardReady(document);
+    expect(result.isValid).toBe(true);
+    expect(result.issues).toHaveLength(0);
+    expect(canRunWizard(document)).toBe(true);
+  });
+
+  it("accepts document that is also calculation-ready", () => {
+    const document = validDocument();
+    const result = validateWizardReady(document);
+    expect(result.isValid).toBe(true);
+    expect(canRunWizard(document)).toBe(true);
+  });
+
+  it("rejects when statement count is not five", () => {
+    const document = wizardReadyDocument();
+    document.statements = document.statements.slice(0, 4);
+    const result = validateWizardReady(document);
+    expect(result.isValid).toBe(false);
+    expect(result.issues.some((issue) => issue.code === "statement-count-invalid")).toBe(true);
+    expect(canRunWizard(document)).toBe(false);
+  });
+
+  it("rejects when statement prefix is invalid", () => {
+    const document = wizardReadyDocument();
+    document.statements[0]!.text = "We should establish weekly planning rituals";
+    expect(canRunWizard(document)).toBe(false);
+    expect(
+      validateWizardReady(document).issues.some((i) => i.code === "statement-prefix-invalid")
+    ).toBe(true);
+  });
+
+  it("rejects when word count is outside 3-7", () => {
+    const document = wizardReadyDocument();
+    document.statements[0]!.text = "I/We must do this";
+    expect(canRunWizard(document)).toBe(false);
+  });
+
+  it("rejects when initial order is missing or duplicate", () => {
+    const document = wizardReadyDocument();
+    document.statements[0]!.initialOrder = null;
+    expect(canRunWizard(document)).toBe(false);
+    document.statements[0]!.initialOrder = 1;
+    document.statements[1]!.initialOrder = 1;
+    expect(canRunWizard(document)).toBe(false);
+  });
+
+  it("does not require connection directions", () => {
+    const document = wizardReadyDocument();
+    expect(document.connections.every((c) => c.direction === null)).toBe(true);
+    expect(validateWizardReady(document).isValid).toBe(true);
+    expect(canRunWizard(document)).toBe(true);
   });
 });

@@ -14,10 +14,15 @@ import {
   toConnectionPairId
 } from "@/src/domain/hoshin/models";
 import { calculateRanking } from "@/src/domain/hoshin/ranking";
-import { validateDraft, validateForCalculation } from "@/src/domain/hoshin/validation";
+import {
+  canRunWizard,
+  validateDraft,
+  validateForCalculation
+} from "@/src/domain/hoshin/validation";
 import { buildVbriefFilename, toVbrief } from "@/src/infrastructure/export/vbrief";
 import { getHoshinRepository } from "@/src/infrastructure/indexeddb/repository-singleton";
 import { useUndoableState } from "@/src/features/hoshin/use-undoable-state";
+import { WizardModal } from "@/src/features/hoshin/wizard-modal";
 
 const CARD_POSITIONS: Record<StatementId, { left: string; top: string }> = {
   s1: { left: "39%", top: "4%" },
@@ -256,6 +261,7 @@ export function HoshinEditor() {
   const [dragPointer, setDragPointer] = useState<AnchorPoint | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [calculatedAtLeastOnce, setCalculatedAtLeastOnce] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [anchorPointsByStatement, setAnchorPointsByStatement] = useState<
     Record<StatementId, StatementAnchorPoints>
   >(createFallbackStatementAnchors);
@@ -711,6 +717,18 @@ export function HoshinEditor() {
         </div>
       )}
 
+      {wizardOpen && (
+        <WizardModal
+          document={document}
+          repository={repository}
+          onClose={(updated) => {
+            replacePresent(updated);
+            setDocuments((current) => upsertDocumentInList(current, updated));
+            setWizardOpen(false);
+          }}
+        />
+      )}
+
       <header className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-end gap-2">
           <div className="flex-1">
@@ -997,6 +1015,19 @@ export function HoshinEditor() {
             disabled={!canRedo}
           >
             Redo
+          </button>
+          <button
+            type="button"
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50"
+            disabled={!loaded || !canRunWizard(document)}
+            title={
+              !canRunWizard(document)
+                ? "Complete all 5 statements and set order 1–5 to run the wizard"
+                : undefined
+            }
+            onClick={() => setWizardOpen(true)}
+          >
+            Run wizard
           </button>
           <button
             type="button"
