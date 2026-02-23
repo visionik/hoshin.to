@@ -23,6 +23,7 @@ import { buildVbriefFilename, toVbrief } from "@/src/infrastructure/export/vbrie
 import { getHoshinRepository } from "@/src/infrastructure/indexeddb/repository-singleton";
 import { useUndoableState } from "@/src/features/hoshin/use-undoable-state";
 import { WizardModal } from "@/src/features/hoshin/wizard-modal";
+import { getPairsWithNullDirection } from "@/src/features/hoshin/wizard-logic";
 
 const CARD_POSITIONS: Record<StatementId, { left: string; top: string }> = {
   s1: { left: "39%", top: "4%" },
@@ -262,6 +263,8 @@ export function HoshinEditor() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [calculatedAtLeastOnce, setCalculatedAtLeastOnce] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardSuggestDialogOpen, setWizardSuggestDialogOpen] = useState(false);
+  const hasSuggestedWizardForDocumentId = useRef<string | null>(null);
   const [anchorPointsByStatement, setAnchorPointsByStatement] = useState<
     Record<StatementId, StatementAnchorPoints>
   >(createFallbackStatementAnchors);
@@ -373,6 +376,27 @@ export function HoshinEditor() {
 
     void run();
   }, [replacePresent, repository]);
+
+  useEffect(() => {
+    hasSuggestedWizardForDocumentId.current = null;
+  }, [document.id]);
+
+  const hasUnsetConnections = useMemo(
+    () => getPairsWithNullDirection(document).length > 0,
+    [document.connections]
+  );
+  const wizardReady = canRunWizard(document);
+  useEffect(() => {
+    if (
+      loaded &&
+      wizardReady &&
+      hasUnsetConnections &&
+      hasSuggestedWizardForDocumentId.current !== document.id
+    ) {
+      hasSuggestedWizardForDocumentId.current = document.id;
+      setWizardSuggestDialogOpen(true);
+    }
+  }, [loaded, wizardReady, document.id, hasUnsetConnections]);
 
   useEffect(() => {
     if (!loaded) {
@@ -717,6 +741,37 @@ export function HoshinEditor() {
         </div>
       )}
 
+      {wizardSuggestDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold">Statements and order are set</h2>
+            <p className="mb-4 text-sm text-slate-700">
+              The only step left is to connect boxes. Run the Hoshin Wizard to compare each
+              pair and set connection directions?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+                onClick={() => setWizardSuggestDialogOpen(false)}
+              >
+                No
+              </button>
+              <button
+                type="button"
+                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                onClick={() => {
+                  setWizardSuggestDialogOpen(false);
+                  setWizardOpen(true);
+                }}
+              >
+                Yes, run wizard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {wizardOpen && (
         <WizardModal
           document={document}
@@ -789,13 +844,11 @@ export function HoshinEditor() {
       </header>
 
       <section className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <label className="mb-2 block text-sm font-medium" htmlFor="question-input">
-          Prompt question
-        </label>
         <p className="text-sm text-slate-700">{PROMPT_PREFIX}</p>
         <input
           id="question-input"
           type="text"
+          aria-label="Objective or outcome"
           className="mt-2 block w-full min-w-[80ch] rounded border border-slate-300 p-2 text-sm"
           value={promptBlank}
           placeholder="Enter the objective/outcome"
